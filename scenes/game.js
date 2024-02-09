@@ -29,6 +29,8 @@ export class Game extends Phaser.Scene{
         this.load.audio('livelostsample', 'sounds/live-lost.ogg');
         this.load.audio('phaseChangeSample', 'sounds/phasechange.ogg')
         this.load.audio('fixedBrickImpactSample', 'sounds/fixed-brick-impact.ogg')
+
+        this.load.spritesheet('bluediamond', 'images/blue_diamond-sprites.png', {frameWidth: 48, frameHeight: 48});
     }
     create(){
         this.add.image(410,250,'background');
@@ -80,6 +82,28 @@ export class Game extends Phaser.Scene{
         this.liveCounter.create();
 
         this.phaseConstructor.create();
+
+        this.miSprite = this.add.sprite(40,40, 'bluediamond');
+        this.miSprite.anims.play('bluediamondanimation');
+        this.physics.add.collider(this.ball, this.miSprite);
+        this.anims.create({
+            key: 'bluediamondanimation',
+            frames: this.anims.generateFrameNumbers('bluediamond', {start:0, end: 7}),
+            frameRate: 10,
+            repeat: -1,
+            yoyo: true,
+        });
+
+        this.diamonds = this.relatedScene.physics.add.group();
+        this.relatedScene.physics.add.collider(this.ball, this.diamonds, this.ballImpact, null, this);
+        let diamond = this.diamonds.create(x, y, sprite);
+        diamond.setScale(0.6);
+        diamond.anims.play(sprite + 'animation');
+        diamond.body.setAllowRotation();
+        diamond.body.setAngularVelocity(100);
+        diamond.body.setVelocity(Phaser.Math.Between(-100, 100), Phaser.Math.Between(-100, 100));
+        diamond.setBounce(1);
+        diamond.setCollideWorldBounds(true);
     }
 
     platformImpact(){
