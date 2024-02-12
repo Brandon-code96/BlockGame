@@ -6,9 +6,9 @@ export class PhaseConstructor{
     constructor(scene){
         this.relatedScene = scene;
         this.phases = [
-            Phase4,
             Phase2,
-            Phase1
+            Phase1,
+            Phase4,
         ]
     }
 
@@ -28,6 +28,6 @@ export class PhaseConstructor{
     }
 
     isPhaseFinished(){
-        return this.currentPhase.isPhaserFinished();
+        return this.currentPhase.isPhaseFinished();
     }
 }

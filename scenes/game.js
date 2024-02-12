@@ -1,52 +1,37 @@
 import { LiveCounter } from "../components/live-counter.js";
-import { PhaseConstructor } from "./phases/phaseconstructor.js";
+import { Ball } from "../components/ball.js";
+import { PhaseConstructor } from "../components/phases/phaseconstructor.js";
+import { Platform } from "../components/platform.js";
+
+const INITIAL_LIVES = 6;
+const INTIAL_VELOCITY_X = -60;
 
 export class Game extends Phaser.Scene{
     constructor(){
         super({key: 'game'});
     }
     init(){
+        this.glueRecordVelocity = INTIAL_VELOCITY_X;
         this.phaseConstructor = new PhaseConstructor(this);
+        this.platform = new Platform(this);
+        this.ball = new Ball(this);
+        this.liveCounter = new LiveCounter(this, INITIAL_LIVES);
         this.score = 0;
-        this.liveCounter = new LiveCounter(this, 3);
-    }
-    preload() {
-        this.load.image('background', 'images/background.png');
-        this.load.image('platform', 'images/platform.png');
-        this.load.image('ball', 'images/ball.png');
-        this.load.image('bluebrick', 'images/brickBlue.png');
-        this.load.image('orangebrick', 'images/brickOrange.png');
-        this.load.image('greenbrick', 'images/brickGreen.png');
-        this.load.image('blackbrick', 'images/brickBlack.png');
-        this.load.image('greybrick', 'images/brickGrey.png');
-        this.load.image('yellowbrick', 'images/brickYellow.png');
+    };
 
-        this.load.audio('platformimpactsample', 'sounds/sounds_platform-impact.ogg');
-        this.load.audio('brickimpactsample', 'sounds/sounds_brick-impact.ogg');
-        this.load.audio('gameoversample', 'sounds/sounds_gameover.ogg');
-        this.load.audio('winsample', 'sounds/sounds_you_win.ogg');
-        this.load.audio('startgamesample', 'sounds/sounds_start-game.ogg');
-        this.load.audio('livelostsample', 'sounds/live-lost.ogg');
-        this.load.audio('phaseChangeSample', 'sounds/phasechange.ogg')
-        this.load.audio('fixedBrickImpactSample', 'sounds/fixed-brick-impact.ogg')
-
-        this.load.spritesheet('bluediamond', 'images/blue_diamond-sprites.png', {frameWidth: 48, frameHeight: 48});
-    }
     create(){
+        this.physics.world.setBoundsCollision(true, true, true, false);
+
         this.add.image(410,250,'background');
 
-        this.platform = this.physics.add.image(400,460,'platform').setImmovable();
-        this.platform.body.allowGravity = false;
-        this.platform.setCollideWorldBounds(true);
+        this.liveCounter.create();
 
-        this.ball = this.physics.add.image(385,430,'ball');
-        this.ball.setCollideWorldBounds(true);
-        this.ball.setBounce(1);
-        this.ball.setData('glue', true);
+        this.platform.create();
+        this.ball.create();
 
-        this.physics.world.setBoundsCollision(true,true,true,false);
+        this.physics.add.collider(this.ball.get(), this.platform.get(), this.platformImpact, null, this);
 
-        this.physics.add.collider(this.ball, this.platform, this.platformImpact, null, this);
+        this.phaseConstructor.create();
 
         this.scoreText = this.add.text(16, 16, 'PUNTOS:0',{
             fontSize: '20px',
@@ -54,86 +39,81 @@ export class Game extends Phaser.Scene{
             fontFamily: 'verdana, arial, sans-serif'
         });
 
-        /*this.bricks = this.physics.add.staticGroup({
-            key:['bluebrick', 'orangebrick', 'greenbrick', 'blackbrick'],
-            frameQuantity: 10,
-            gridAlign: {
-                width: 10,
-                height: 4,
-                cellWidth: 67,
-                cellHeight: 34,
-                x: 112,
-                y: 100
-            },
-        }); */
-        //this.physics.add.collider(this.ball, this.bricks, this.brickImpact, null, this);
-
-        this.cursors = this.input.keyboard.createCursorKeys();
-
         this.platformImpactSample = this.sound.add('platformimpactsample');
         this.brickImpactSample = this.sound.add('brickimpactsample');
         this.gameOverSample = this.sound.add('gameoversample');
         this.winSample = this.sound.add('winsample');
         this.startGameSample = this.sound.add('startgamesample');
         this.liveLostSample = this.sound.add('livelostsample');
-        this.phaseChangeSample = this.sound.add('phaseChangeSample');
-        this.fixedBrickImpactSample = this.sound.add('fixedBrickImpactSample')
+        this.phaseChangeSample = this.sound.add('phasechangesample');
+        this.fixedBrickImpactSample = this.sound.add('fixedbrickimpactsample')
+        
+        this.createAnimations();
 
-        this.liveCounter.create();
+        this.cursors = this.input.keyboard.createCursorKeys();
 
-        this.phaseConstructor.create();
+    }
+    update(){
+        this.platform.updatePosition(this.ball, this.cursors);
 
-        this.miSprite = this.add.sprite(40,40, 'bluediamond');
-        this.miSprite.anims.play('bluediamondanimation');
-        this.physics.add.collider(this.ball, this.miSprite);
-        this.anims.create({
-            key: 'bluediamondanimation',
-            frames: this.anims.generateFrameNumbers('bluediamond', {start:0, end: 7}),
-            frameRate: 10,
-            repeat: -1,
-            yoyo: true,
-        });
+        if (this.ball.isLost()) {
+            let gameNotFinished = this.liveCounter.liveLost();
+            if (gameNotFinished) {
+                this.liveLostSample.play();
+                this.platform.setInitialState(this.ball);
+                this.platform.setInitialSize();
+                this.platform.removeGlue();
+                this.glueRecordVelocity = INTIAL_VELOCITY_X;
+            }
+        }
 
-        this.diamonds = this.relatedScene.physics.add.group();
-        this.relatedScene.physics.add.collider(this.ball, this.diamonds, this.ballImpact, null, this);
-        let diamond = this.diamonds.create(x, y, sprite);
-        diamond.setScale(0.6);
-        diamond.anims.play(sprite + 'animation');
-        diamond.body.setAllowRotation();
-        diamond.body.setAngularVelocity(100);
-        diamond.body.setVelocity(Phaser.Math.Between(-100, 100), Phaser.Math.Between(-100, 100));
-        diamond.setBounce(1);
-        diamond.setCollideWorldBounds(true);
+        if(this.cursors.up.isDown){
+            if(this.ball.isGlued){
+                this.startGameSample.play();
+                this.ball.throw(INTIAL_VELOCITY_X);
+            }else if (this.platform.isGluedBecausePower()) {
+                this.ball.throw(this.glueRecordVelocityX);
+                this.platform.hasBallGlued = false;
+            }
+        }
+    }
+    
+    platformImpact(ball, platform){
+        this.platformImpactSample.play();
+        this.increasePoints(1);
+        let relativeImpact = ball.x - platform.x;
+        if (this.platform.hasGluePower()) {
+            ball.setVelocityY(0);
+            ball.setVelocityX(0);
+            this.glueRecordVelocityX = this.calculateVelocity(relativeImpact);
+            this.platform.hasBallGlued = true;
+        }else{
+            ball.setVelocityX(this.calculateVelocity(relativeImpact));
+        }
     }
 
-    platformImpact(){
-        let relativeImpact = this.ball.x - this.platform.x;
-        if(relativeImpact > 0 ){
-            this.ball.setVelocityX(10 * relativeImpact);
-        }else if(relativeImpact < 0 ){
-            this.ball.setVelocityX(10 * relativeImpact);
-        }else{
-            this.ball.setVelocityX(Phaser.Math.Between(-10,10))
+    calculateVelocity(relativeImpact){
+        if (relativeImpact > 50) {
+            relativeImpact = 50;
         }
-        //agregamos audio
-        this.platformImpactSample.play();
+        if (relativeImpact > 0) {
+            return (8 * relativeImpact);
+        }else if (relativeImpact < 0) {
+            return (8 * relativeImpact);
+        }else{
+            return (Phaser.Math.Between(-10, 10))
+        }
     }
 
     brickImpact(ball, brick){
+        this.brickImpactSample.play();
         brick.disableBody(true, true);
         this.increasePoints(10);
-        /*if (this.bricks.countActive()===0) {
-            this.endGame(true);
-            this.winSample.play();
-        }*/
         if (this.phaseConstructor.isPhaseFinished()) {
             this.phaseChangeSample.play();
             this.phaseConstructor.nextLevel();
-            this.setInitialPlatformState();
+            this.platform.setInitialState(this.ball);
         }
-
-        //agregamos audio
-        this.brickImpactSample.play();
     }
 
     fixedBrickImpact(ball, brick){
@@ -146,62 +126,52 @@ export class Game extends Phaser.Scene{
     }
 
     endGame(completed = false){
-        this.scene.pause();
         if (!completed) {
             this.gameOverSample.play();
             this.scene.start('gameover');
         }else {
+            this.winSample.play();
             this.scene.start('congratulations');
         }
     }
 
-    setInitialPlatformState(){
-        this.liveLostSample.play();
-        this.platform.x = 400;
-        this.platform.y = 460;
-        this.ball.setVelocity(0,0);
-        this.ball.x = 385;
-        this.ball.y = 430;
-        this.ball.setData('glue', true);
+    createAnimations(){
+        this.anims.create({
+            key: 'bluediamondanimation',
+            frames: this.anims.generateFrameNumbers('bluediamond', { start: 0, end: 7 }),
+            frameRate: 10,
+            repeat: -1,
+            yoyo: true,
+        });
+        this.anims.create({
+            key: 'reddiamondanimation',
+            frames: this.anims.generateFrameNumbers('reddiamond', { start: 0, end: 7 }),
+            frameRate: 10,
+            repeat: -1,
+            yoyo: true,
+        });
+        this.anims.create({
+            key: 'greendiamondanimation',
+            frames: this.anims.generateFrameNumbers('greendiamond', { start: 0, end: 7 }),
+            frameRate: 10,
+            repeat: -1,
+            yoyo: true,
+        });
     }
 
-    update(){
-        if(this.cursors.left.isDown){
-            this.platform.setVelocityX(-500);
-            if(this.ball.getData('glue')){
-                this.ball.setVelocityX(-500)
-            }
-        }
-        else if(this.cursors.right.isDown){
-            this.platform.setVelocityX(500);
-            if(this.ball.getData('glue')){
-                this.ball.setVelocityX(500)
-            }
-        }
-        else{
-            this.platform.setVelocityX(0);
-            if(this.ball.getData('glue')){
-                this.ball.setVelocityX(0)
-            }
-        }
+    increaseLives(){
+        this.liveCounter.increase();
+    }
 
-        if(this.ball.y > 500 && this.ball.active){
-            //this.scene.pause();
-            //this.bricks.setVisible(false);
-            //this.endGame();
-            //this.gameOverSample.play();
-            let gameNotFinished = this.liveCounter.liveLost();
-            if(gameNotFinished){
-                this.setInitialPlatformState();
-            }
-        }
+    setGluePower(){
+        this.platform.setGluePower();
+    }
 
-        if(this.cursors.up.isDown){
-            if(this.ball.getData('glue')){
-                this.startGameSample.play();
-                this.ball.setVelocity(-60, -300);
-                this.ball.setData('glue', false);
-            }
-        }
+    setPlatformBig(){
+        this.platform.setBigSize();
+    }
+
+    removeGlueFromBall(){
+        this.ball.removeGlue();
     }
 }
