@@ -51,6 +51,10 @@ export class Loader extends Phaser.Scene{
         this.load.spritesheet('restartbutton', '/images/restart.png', { frameWidth: 190, frameHeight: 49 });
         this.load.image('congratulations', '/images/congratulations.png');
         this.load.image('gameover', '/images/gameover.png');
+
+        let url = 'https://raw.githubusercontent.com/rexrainbow/phaser3-rex-notes/master/dist/rexvirtualjoystickplugin.min.js';
+        this.load.plugin('rexvirtualjoystickplugin', url, true);
+
     }
 
     create(){

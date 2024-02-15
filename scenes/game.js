@@ -52,9 +52,19 @@ export class Game extends Phaser.Scene{
 
         this.cursors = this.input.keyboard.createCursorKeys();
 
+        this.joyStick = this.plugins.get('rexvirtualjoystickplugin').add(this, {
+            x: 55,
+            y: 400,
+            radius: 100,
+            base: this.add.circle(0, 0, 50, 0x888888),
+            thumb: this.add.circle(0, 0, 25, 0xcccccc),
+        });
+
+        this.joystickCursors = this.joyStick.createCursorKeys();
+
     }
     update(){
-        this.platform.updatePosition(this.ball, this.cursors);
+        this.platform.updatePosition(this.ball, this.cursors, this.joystickCursors);
 
         if (this.ball.isLost()) {
             let gameNotFinished = this.liveCounter.liveLost();
@@ -67,7 +77,7 @@ export class Game extends Phaser.Scene{
             }
         }
 
-        if(this.cursors.up.isDown){
+        if(this.cursors.up.isDown || this.joystickCursors.up.isDown){
             if(this.ball.isGlued){
                 this.startGameSample.play();
                 this.ball.throw(INTIAL_VELOCITY_X);
